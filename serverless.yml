@@ -1,0 +1,69 @@
+service: testefinal
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - Fn::Sub: arn:aws:dynamodb:${self:provider.region}:${AWS::AccountId}:table/${self:custom.tableName}/*
+
+functions:
+  patients:
+    handler: handler.patients
+    events:
+      - httpApi:
+          path: /patients
+          method: GET
+      - httpApi:
+          path: /patients/{id}
+          method: GET
+    environment:
+      TABLE_NAME: ${self:custom.tableName}
+
+  createPatient:
+    handler: handler.createPatient
+    events:
+      - httpApi:
+          path: /createPatient
+          method: POST
+    environment:
+      TABLE_NAME: ${self:custom.tableName}
+
+custom:
+  tableName: patients_table
+
+resources:
+  Resources:
+    PatientsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+Outputs:
+  PatientsTableArn:
+    Description: "DynamoDB Table ARN"
+    Value:
+      Fn::GetAtt:
+        - PatientsTable
+        - Arn
